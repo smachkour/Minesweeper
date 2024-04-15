@@ -125,7 +125,7 @@ void save_game() {
             }
         }
     }
-    printf("Spel opgeslagen. Bommenmaskering: %016llX, Zichtbaarheidsmaskering: %016llX\n", bomb_mask, visible_mask);
+    printf("Spel opgeslagen. Bommenmaskering: %llX, Zichtbaarheidsmaskering: %llX\n", bomb_mask, visible_mask);
 }
 
 // Laad een opgeslagen spelstatus
