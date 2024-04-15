@@ -1,400 +1,222 @@
+#ifndef MINESWEEPER_SM_H
+#define MINESWEEPER_SM_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <math.h>
-#include <string.h>
 #include <ctype.h>
-#include "stdbool.h"
-#include <inttypes.h>
+#include <string.h>
 
-// Function prototypes
-void initBoard();
-void printBoard();
-void placeBombs(int numBombs);
-int playGame();
-int countAdjBombs(int row, int col);
-void floodFill(int row, int col);
-void saveGame();
-void calculatePercentage();
-void revealBombs();
-void inputName();
-
-// Defines
+// Definieer constanten
 #define ROWS 8
 #define COLS 8
 
-// Board initialisations
-    // Initializes the game board with all cells unrevealed
-    char board[ROWS][COLS];
+// Declareer globale variabelen
+char field[ROWS][COLS];
+char visible[ROWS][COLS];
+int bombs;
+int remaining;
 
-    // Initializes the bomb locations on the game board
-    char bombs[ROWS][COLS];
+// Declareer functies
+void init_field();
+void place_bombs();
+int count_adjacent_bombs(int row, int col);
+void reveal_zeros(int row, int col);
+void print_field();
+int is_valid_move(int row, int col);
+void make_move(int row, int col);
+void save_game();
+int load_game(unsigned long long bomb_mask, unsigned long long visible_mask);
+void start_new_game();
+void load_saved_game();
+void play_game();
 
-    // Stores whether each cell on the game board has been revealed
-    bool revealed[ROWS][COLS]; 
-
-
-// Global Variables
-    // Indicates whether the game is over
-    bool gameOver = false;
-
-    // Stores the number of bombs on the game board
-    int numBombs = 0;
-
-    // Stores the locations of the bombs on the game board as a series of bits
-    long long bombBits = 0;
-
-    // Stores the revealed cells on the game board as a series of bits
-    long long openedBits = 0;
-
-
-
-//Allows the user to print their name at the start of the game
-void inputName()
-{
-    char name[50];
-    printf("\nEnter your name: ");
-    scanf("%s", name);
-    printf("Hello, %s!\n", name);
+// Initialiseer het speelveld
+void init_field() {
+    memset(field, '-', sizeof(field));
+    memset(visible, '*', sizeof(visible));
+    remaining = ROWS * COLS - bombs;
 }
 
-// Initializes the board with '-' in each cell
-void initBoard()
-{
-    for (int i = 0; i < ROWS; i++)
-    {
-        for (int j = 0; j < COLS; j++)
-        {
-            board[i][j] = '-';
+// Plaats bommen op willekeurige posities
+void place_bombs() {
+    int placed = 0;
+    while (placed < bombs) {
+        int row = rand() % ROWS;
+        int col = rand() % COLS;
+        if (field[row][col] != 'X') {
+            field[row][col] = 'X';
+            placed++;
         }
     }
 }
 
-// Prints the current state of the board
-void printBoard()
-{
-    int i, j;
-
-    printf("  ");
-    for (i = 0; i < COLS ; i++)
-    {
-        printf(" %c  ", 'A' + i);
-    }
-    printf("\n");
-
-    for (i = 0; i < ROWS; i++)
-    {
-        printf(" +");
-        for (j = 0; j < COLS; j++)
-        {
-            printf("---+");
-        }
-        printf("\n");
-
-        printf("%d|", i + 1);
-        for (j = 0; j < COLS; j++)
-        {
-            printf(" %c |", board[i][j]);
-        }
-        printf("\n");
-    }
-
-    printf(" +");
-    for (j = 0; j < COLS; j++)
-    {
-        printf("---+");
-    }
-    printf("\n");
-}
-
-
-
-
-// Calculates the percentage of cells that have been revealed on the board
-// and prints the result to the console
-void calculatePercentage()
-{
-    int revealed = 0;
-    int totalNonBomb = ROWS * COLS - numBombs;
-
-    // count number of revealed cells
-    for (int i = 0; i < ROWS; i++)
-    {
-        for (int j = 0; j < COLS; j++)
-        {
-            if (board[i][j] != '-')
-            {
-                revealed++;
+// Tel het aantal aangrenzende bommen voor een bepaalde cel
+int count_adjacent_bombs(int row, int col) {
+    int count = 0;
+    for (int i = row - 1; i <= row + 1; i++) {
+        for (int j = col - 1; j <= col + 1; j++) {
+            if (i >= 0 && i < ROWS && j >= 0 && j < COLS && field[i][j] == 'X') {
+                count++;
             }
         }
-    }
-
-    double percentage = (double)(revealed) / (double)(totalNonBomb)*100;
-    printf("You have unlocked: %.2lf%% of the playing field.\n", ceil(percentage * 100) / 100);
-}
-
-// Counts the number of bombs in the cells immediately adjacent to (row, col)
-// and returns the result (count)
-int countAdjBombs(int row, int col)
-{
-    int count = 0; // number of bombs found
-    if (row > 0)
-    {
-        count += (bombs[row - 1][col] == '*');
-    }
-    if (row < ROWS - 1)
-    {
-        count += (bombs[row + 1][col] == '*');
-    }
-    if (col > 0)
-    {
-        count += (bombs[row][col - 1] == '*');
-    }
-    if (col < COLS - 1)
-    {
-        count += (bombs[row][col + 1] == '*');
     }
     return count;
 }
 
-// Performs a flood fill operation starting at the cell (row, col)
-// in the minesweeper board. If the cell contains a bomb, the number of
-// bombs in the surrounding cells is displayed in the cell. Otherwise,
-// the cell is revealed and the flood fill operation is recursively performed on all unrevealed, neighboring cells.
-void floodFill(int row, int col)
-{
-    // return if (row, col) is not a valid cell on the board or if it has already been revealed
-    if (row < 0 || row >= ROWS || col < 0 || col >= COLS || board[row][col] != '-')
-    {
+// Onthul alle aangrenzende cellen met nul aangrenzende bommen
+void reveal_zeros(int row, int col) {
+    if (row < 0 || row >= ROWS || col < 0 || col >= COLS || visible[row][col] != '*') {
         return;
     }
-
-    int bombCount = countAdjBombs(row, col); // count number of bombs in the cells surrounding (row, col)
-
-    // if there are no bombs surrounding (row, col), reveal the cell and 
-    // recursively call floodFill on all unrevealed, neighboring cells
-    if (bombCount == 0)
-    {
-        board[row][col] = ' ';
-        floodFill(row - 1, col);
-        floodFill(row + 1, col);
-        floodFill(row, col - 1);
-        floodFill(row, col + 1);
-    }
-    // if there are bombs surrounding (row, col), display the number of bombs in the cell
-    else
-    {
-        board[row][col] = bombCount + '0';
+    int count = count_adjacent_bombs(row, col);
+    visible[row][col] = count + '0';
+    remaining--;
+    if (count == 0) {
+        reveal_zeros(row - 1, col - 1);
+        reveal_zeros(row - 1, col);
+        reveal_zeros(row - 1, col + 1);
+        reveal_zeros(row, col - 1);
+        reveal_zeros(row, col + 1);
+        reveal_zeros(row + 1, col - 1);
+        reveal_zeros(row + 1, col);
+        reveal_zeros(row + 1, col + 1);
     }
 }
 
-
-// Plays one move of the game
-// Returns 1 if player loses, 0 otherwise
-// Sets gameOver to true when conditions are met to interrupt main while loop
-int playGame()
-{
-    char loc[10];
-    int row;
-    int col;
-   printf("Enter coordinate or 'save' the game: \n");
-    fgets(loc, 10, stdin);
-    loc[strlen(loc) - 1] = '\0'; // \n verwijderen
-    for (int i = 0; i < strlen(loc); i++)
-    {
-        if (isupper(loc[i]) == 0)
-        {
-            loc[i] = toupper(loc[i]);
+// Toon het speelveld op het scherm
+void print_field() {
+    printf("   A B C D E F G H\n");
+    for (int i = 0; i < ROWS; i++) {
+        printf("%d  ", i + 1);
+        for (int j = 0; j < COLS; j++) {
+            printf("%c ", visible[i][j]);
         }
-        if (strcmp("SAVE", loc) == 0)
-        {
-           saveGame();
-        exit(0);
-        }
-        else if (isalpha(loc[i]) > 0)
-        {
-            col = loc[i] - 'A'; 
-        }
-        else
-        {
-            row = atoi(&loc[i]) - 1; 
-        }
-    }
-    if (bombs[row][col] == '*')
-    {
-        gameOver = true;
-            revealBombs();
-            printBoard();
-            printf("Game over.. Better luck next time! ;)\n");
-    }
-    else
-    {
-        floodFill(row, col);
-        
-    }
-    return 0;
-}
-
-// Checks for win
-// Sets gameOver to true when conditions are met to interrupt main while loop
-void checkWin()
-{
-    int revealed = 0;
-    int totalNonBomb = ROWS * COLS - numBombs;
-
-    for (int i = 0; i < ROWS; i++)
-    {
-        for (int j = 0; j < COLS; j++)
-        {
-            if (board[i][j] != '-')
-            {
-                revealed++;
-            }
-        }
-    }
-    // printf("revealed: %d\n", revealed);              Test to reveal amount of revealed spaces
-    // printf("totalNonBomb: %d\n", totalNonBomb);      Test to check whether totalNonBomb calculation works
-    if (revealed == totalNonBomb)
-    {
-
-        gameOver = true;
-        revealBombs();
-        printBoard();
-        printf("Congratulations! You have revealed all non-bomb cells and won the game!\n");
+        printf("\n");
     }
 }
 
-// Randomly places 'numBombs' number of bombs on the board
-void placeBombs(int numBombs)
-{
+// Controleer of een zet geldig is
+int is_valid_move(int row, int col) {
+    return row >= 0 && row < ROWS && col >= 0 && col < COLS && visible[row][col] == '*';
+}
 
-    for (int i = 0; i < numBombs; i++)
-    {
-        int x = rand() % ROWS;
-        int y = rand() % COLS;
-
-        if (bombs[x][y] != '*')
-        {
-            bombs[x][y] = '*';
-        }
-        else
-        {
-            i--;
-        }
+// Voer een zet uit op het speelveld
+void make_move(int row, int col) {
+    if (field[row][col] == 'X') {
+        printf("Game over! Je hebt een bom geraakt.\n");
+        memcpy(visible, field, sizeof(field));
+    } else {
+        reveal_zeros(row, col);
     }
 }
 
-// Reveals the location of the current bombs in the game
-void revealBombs()
-{
-    for (int i = 0; i < ROWS; i++)
-    {
-        for (int j = 0; j < COLS; j++)
-        {
-            if (bombs[i][j] == '*')
-            {
-                board[i][j] = '*';
+// Sla de huidige spelstatus op
+void save_game() {
+    unsigned long long bomb_mask = 0;
+    unsigned long long visible_mask = 0;
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            if (field[i][j] == 'X') {
+                bomb_mask |= 1ULL << (i * COLS + j);
+            }
+            if (visible[i][j] != '*') {
+                visible_mask |= 1ULL << (i * COLS + j);
             }
         }
     }
+    printf("Spel opgeslagen. Bommenmaskering: %016llX, Zichtbaarheidsmaskering: %016llX\n", bomb_mask, visible_mask);
 }
 
-// Saves the current state of the game by printing two 64-bit hexadecimal values
-void saveGame()
-{
-
-    int i, j;
-    for (i = 0; i < ROWS; i++)
-    {
-        for (j = 0; j < COLS; j++)
-        {
-            if (bombs[i][j] == '*')
-            {
-                bombBits |= (1LL << (i * COLS + j));
+// Laad een opgeslagen spelstatus
+int load_game(unsigned long long bomb_mask, unsigned long long visible_mask) {
+    int loaded_bombs = 0;
+    remaining = ROWS * COLS;
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            if (bomb_mask & (1ULL << (i * COLS + j))) {
+                field[i][j] = 'X';
+                loaded_bombs++;
+            } else {
+                field[i][j] = '-';
             }
-            else if (board[i][j] != '-')
-            {
-                openedBits |= (1LL << (i * COLS + j));
+            if (visible_mask & (1ULL << (i * COLS + j))) {
+                visible[i][j] = count_adjacent_bombs(i, j) + '0';
+                remaining--;
+            } else {
+                visible[i][j] = '*';
             }
         }
     }
-    printf("The location of all the bombs and already opened spaces will be displayed below.\n");
-    printf("Bomb Bits: %llx\n", bombBits);
-    printf("Opened Bits: %llx\n", openedBits);
+    return loaded_bombs == bombs && remaining >= 0;
 }
 
-// Welcomes you to the game
-void welcomeMSG()
-{
-    printf("+------------------------------------------------+\n");
-    printf("|                                                |\n");
-    printf("|     Welcome to Samir's Minesweeper game!       |\n");
-    printf("|                                                |\n");
-    printf("+------------------------------------------------+\n");
-}
-
-void loadGame(long long bombBits, long long openedBits)
-{
-    // Convert the bombBits and openedBits values to arrays of bool values
-    bool bombBitArray[ROWS * COLS];
-    bool openedBitArray[ROWS * COLS];
-    for (int i = 0; i < ROWS * COLS; i++)
-    {
-        bombBitArray[i] = (bombBits >> i) & 1;
-        openedBitArray[i] = (openedBits >> i) & 1;
+// Start een nieuw spel
+void start_new_game() {
+    char input[20];
+    printf("Voer het aantal bommen in: ");
+    scanf("%s", input);
+    bombs = atoi(input);
+    if (bombs <= 0 || bombs >= ROWS * COLS) {
+        printf("Ongeldig aantal bommen.\n");
+        return;
     }
+    init_field();
+    place_bombs();
+}
 
-    // Initialize the board, bombs, and revealed arrays based on the values in the bit arrays
-    for (int i = 0; i < ROWS; i++)
-    {
-        for (int j = 0; j < COLS; j++)
-        {
-            int index = i * COLS + j;
-            if (bombBitArray[index])
-            {
-                bombs[i][j] = '*';
-            }
-            else
-            {
-                bombs[i][j] = '-';
-            }
+// Laad een opgeslagen spel
+void load_saved_game() {
+    unsigned long long bomb_mask, visible_mask;
+    printf("Voer de bommenmaskering in: ");
+    scanf("%llX", &bomb_mask);
+    printf("Voer de zichtbaarheidsmaskering in: ");
+    scanf("%llX", &visible_mask);
+    bombs = __builtin_popcountll(bomb_mask);
+    if (!load_game(bomb_mask, visible_mask)) {
+        printf("Ongeldige opgeslagen spelgegevens.\n");
+    }
+}
 
-            revealed[i][j] = openedBitArray[index];
+// Speel het spel
+void play_game() {
+    while (remaining > 0) {
+        print_field();
+        printf("Overgebleven: %.2f%%\n", (float)remaining / (ROWS * COLS - bombs) * 100);
+        printf("Voer een zet in (bijv. 'A1' of 'save'): ");
+        char input[20];
+        scanf("%s", input);
 
-            // If the cell has been revealed, set the corresponding cell in the board array
-            // to the number of adjacent bombs or ' ' if there are no adjacent bombs
-            if (revealed[i][j])
-            {
-                if (bombs[i][j] == '*')
-                {
-                    board[i][j] = '*';
-                }
-                else if (bombs[i][j] == '-')
-                {
-                    int bombCount = countAdjBombs(i, j);
-                    if (bombCount > 0)
-                    {
-                        board[i][j] = bombCount + '0';
-                    }
-                    else
-                    {
-                        board[i][j] = ' ';
-                    }
-                }
-            }
-            // If the cell has not been revealed, set the corresponding cell in the board array to '-'
-            else
-            {
-                board[i][j] = '-';
+        if (strcmp(input, "save") == 0) {
+            save_game();
+            continue;
+        }
+
+        int row = -1, col = -1;
+        if (strlen(input) == 2) {
+            if (isdigit(input[0]) && isalpha(input[1])) {
+                row = input[0] - '1';
+                col = tolower(input[1]) - 'a';
+            } else if (isalpha(input[0]) && isdigit(input[1])) {
+                row = input[1] - '1';
+                col = tolower(input[0]) - 'a';
             }
         }
+
+        if (!is_valid_move(row, col)) {
+            printf("Ongeldige zet.\n");
+            continue;
+        }
+
+        make_move(row, col);
+        if (field[row][col] == 'X') {
+            print_field();
+            break;
+        }
+    }
+
+  if (remaining == 0) {
+        printf("Gefeliciteerd! Je hebt gewonnen.\n");
     }
 }
-
-
-
-
-
-
-
-
+#endif

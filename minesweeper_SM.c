@@ -1,62 +1,34 @@
+
 #include "minesweeper_SM.h"
 
-// Left To Do
-   
-    //  - Fix once double print at start of game                       4 hours in impossible..  XD
-   
-
-
-// Link to Miro flowchart: https://miro.com/app/board/uXjVP1X_2Oo=/?share_link_id=688311395178
-
-int main()
-{
+int main() {
     srand(time(NULL));
 
-        welcomeMSG();
-        inputName();
-        
-        char input[10];
-        while (1)
-        {
-            printf("Enter 'new' to start a new game or 'load' to continue a saved game: \n");
-            scanf("%s", input);
-            if (strcmp(input, "new") == 0)
-            {
-                printf("Enter the number of bombs: ");
-                scanf("%d", &numBombs);
-                initBoard();
-                placeBombs(numBombs);
-                while (!gameOver)
-                {
-                    printBoard();
-                    calculatePercentage();
-                    playGame();   // loss is checked inside playGame  
-                    checkWin();
-                }
-            }
-            else if (strcmp(input, "load") == 0)
-            {
-                printf("Enter the bomb bits in hexadecimal format: \n");
-                scanf("%llx", &bombBits);
+    printf("Welkom bij Minesweeper!\n");
 
-                printf("Enter the opened bits in hexadecimal format: \n");
-                scanf("%llx", &openedBits);
+    while (1) {
+        printf("Voer 'new' in om een nieuw spel te starten of 'load' om een opgeslagen spel te laden: ");
+        char input[20];
+        scanf("%s", input);
 
-                loadGame(bombBits, openedBits);
-                while (!gameOver)
-                {
-                    gameOver = false;
-                    printBoard();
-                    calculatePercentage();
-                    playGame(); // loss is checked inside playGame
-                    checkWin();
-                }
-            }
-            else
-            {
-                printf("Invalid input. Please try again.\n");
-            }
-
+        if (strcmp(input, "new") == 0) {
+            start_new_game();
+        } else if (strcmp(input, "load") == 0) {
+            load_saved_game();
+        } else {
+            printf("Ongeldige invoer. Voer 'new' of 'load' in.\n");
+            continue;
         }
-        return 0;
+
+        play_game();
+
+        printf("Opnieuw spelen? (y/n): ");
+        char play_again;
+        scanf(" %c", &play_again);
+        if (tolower(play_again) != 'y') {
+            break;
+        }
     }
+
+    return 0;
+}
