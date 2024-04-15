@@ -7,7 +7,7 @@ int main() {
     printf("Welkom bij Minesweeper!\n");
 
     while (1) {
-        printf("Voer 'new' in om een nieuw spel te starten of 'load' om een opgeslagen spel te laden: ");
+        printf("Voer m'new' in om een nieuw spel te starten of 'load' om een opgeslagen spel te laden: ");
         char input[20];
         scanf("%s", input);
 

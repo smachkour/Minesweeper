@@ -154,13 +154,32 @@ int load_game(unsigned long long bomb_mask, unsigned long long visible_mask) {
 // Start een nieuw spel
 void start_new_game() {
     char input[20];
-    printf("Voer het aantal bommen in: ");
-    scanf("%s", input);
-    bombs = atoi(input);
-    if (bombs <= 0 || bombs >= ROWS * COLS) {
-        printf("Ongeldig aantal bommen.\n");
-        return;
+    int valid_input = 0;
+    
+    while (!valid_input) {
+        printf("Voer het aantal bommen in: ");
+        scanf("%s", input);
+        
+        // Check if the input is a valid integer
+        int i = 0;
+        while (input[i] != '\0') {
+            if (!isdigit(input[i])) {
+                printf("Ongeldig aantal bommen. Voer een geldig getal in.\n");
+                break;
+            }
+            i++;
+        }
+        
+        if (input[i] == '\0') {
+            bombs = atoi(input);
+            if (bombs > 0 && bombs < ROWS * COLS) {
+                valid_input = 1;
+            } else {
+                printf("Ongeldig aantal bommen. Voer een getal tussen 1 en %d in.\n", ROWS * COLS - 1);
+            }
+        }
     }
+    
     init_field();
     place_bombs();
 }
